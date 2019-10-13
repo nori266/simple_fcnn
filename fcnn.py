@@ -10,19 +10,22 @@ class FCNN:
     def __init__(self) -> None:
         self.l1 = FCLayer(shape=(3, 4))
         self.l2 = FCLayer(shape=(4, 1))
+        self.error = None
 
     def __forward_pass(self, X) -> None:
         self.l1.get_output(X)
         self.l2.get_output(self.l1.output)
 
     def __backward_pass(self, X, y) -> None:
-        self.l2_delta = (y - self.l2.output) * (self.l2.output * (1 - self.l2.output))
-        self.l1_delta = self.l2_delta.dot(self.l2.weights.T) * (self.l1.output * (1 - self.l1.output))
+
+        self.error = y - self.l2.output
+        self.l2_delta = self.error * sygmoid_derivative(self.l2.output)
+        self.l1_delta = self.l2_delta.dot(self.l2.weights.T) * sygmoid_derivative(self.l1.output)
 
         self.l2.update_weights(self.l1.output, self.l2_delta)
         self.l1.update_weights(X, self.l1_delta)
 
-    def fit(self, X: np.array, y: np.array, n_epochs: int = 1000) -> 'FCNN':
+    def fit(self, X: np.array, y: np.array, n_epochs: int = 6000):
         """Trains this little FC network.
 
         :param X: input data
@@ -30,11 +33,14 @@ class FCNN:
         :param n_epochs: number of epochs
         :return: fitted model
         """
+        errors = []
+
         for j in range(n_epochs):
             self.__forward_pass(X)
             self.__backward_pass(X, y)
+            errors.append((np.square(self.error)).mean())
 
-        return self
+        return self, errors
 
     def predict(self, X: np.array) -> np.array:
         """Predicts y given X.
